@@ -90,19 +90,20 @@ Expected<BackupInfo> getBackupInfo(BlockingTcpClient* client,
 }
 
 Status ReplManager::receiveFile(const std::string& fullFileName,
-        std::shared_ptr<BlockingTcpClient> client,
-        size_t remain) {
+                                std::shared_ptr<BlockingTcpClient> client,
+                                size_t remain) {
   auto myfile = std::fstream(fullFileName, std::ios::out | std::ios::binary);
   if (!myfile.is_open()) {
     LOG(ERROR) << "open file:" << fullFileName << " for write failed";
-    return {ErrorCodes::ERR_INTERNAL, "open file failed"};;
+    return {ErrorCodes::ERR_INTERNAL, "open file failed"};
+    ;
   }
   size_t fileBatch = (_cfg->binlogRateLimitMB * 1024 * 1024) / 10;
   while (remain) {
     size_t batchSize = std::min(remain, fileBatch);
     remain -= batchSize;
     Expected<std::string> exptData =
-            client->read(batchSize, std::chrono::seconds(100));
+      client->read(batchSize, std::chrono::seconds(100));
     if (!exptData.ok()) {
       LOG(ERROR) << "fullsync read bulk data failed:"
                  << exptData.status().toString();
@@ -112,21 +113,24 @@ Status ReplManager::receiveFile(const std::string& fullFileName,
     if (myfile.bad()) {
       LOG(ERROR) << "write file:" << fullFileName
                  << " failed:" << strerror(errno);
-      return {ErrorCodes::ERR_INTERNAL, "write file failed"};;
+      return {ErrorCodes::ERR_INTERNAL, "write file failed"};
+      ;
     }
     Status s = client->writeLine("+OK");
     if (!s.ok()) {
       LOG(ERROR) << "write file:" << fullFileName
                  << " reply failed:" << s.toString();
-      return {ErrorCodes::ERR_INTERNAL, "write client failed"};;
+      return {ErrorCodes::ERR_INTERNAL, "write client failed"};
+      ;
     }
   }
   return {ErrorCodes::ERR_OK, ""};
 }
 
-Status ReplManager::receiveFileDirectio(const std::string& fullFileName,
-        std::shared_ptr<BlockingTcpClient> client,
-        size_t remain) {
+Status ReplManager::receiveFileDirectio(
+  const std::string& fullFileName,
+  std::shared_ptr<BlockingTcpClient> client,
+  size_t remain) {
   filesystem::path dirName = filesystem::path(fullFileName).parent_path();
   auto alignedBuf = newAlignedBuff(dirName, 16);
   if (alignedBuf == nullptr) {
@@ -137,16 +141,15 @@ Status ReplManager::receiveFileDirectio(const std::string& fullFileName,
     openWritableFile(fullFileName, true, false);  // PosixWritableFile
   if (writable_file == nullptr) {
     LOG(ERROR) << "openWritableFile failed:" << fullFileName;
-    return {ErrorCodes::ERR_INTERNAL, "openWritableFile failed."};;
+    return {ErrorCodes::ERR_INTERNAL, "openWritableFile failed."};
+    ;
   }
   while (remain) {
     size_t curSize = std::min(remain, alignedBuf->bufSize);
     remain -= curSize;
-    auto s = client->read(alignedBuf->buf,
-            curSize, std::chrono::seconds(100));
+    auto s = client->read(alignedBuf->buf, curSize, std::chrono::seconds(100));
     if (!s.ok()) {
-      LOG(ERROR) << "fullsync read bulk data failed:"
-                 << s.toString();
+      LOG(ERROR) << "fullsync read bulk data failed:" << s.toString();
       return {ErrorCodes::ERR_INTERNAL, "read client failed"};
     }
     rocksdb::Slice slice(alignedBuf->buf, curSize);
@@ -165,7 +168,8 @@ Status ReplManager::receiveFileDirectio(const std::string& fullFileName,
         openWritableFile(fullFileName, false, true);  // PosixWritableFile
       if (writable_file == nullptr) {
         LOG(ERROR) << "openWritableFile failed:" << fullFileName;
-        return {ErrorCodes::ERR_INTERNAL, "openWritableFile failed."};;
+        return {ErrorCodes::ERR_INTERNAL, "openWritableFile failed."};
+        ;
       }
 
       auto rS = writable_file->Append(slice);
@@ -200,7 +204,7 @@ Status ReplManager::receiveFileDirectio(const std::string& fullFileName,
 // send +OK
 void ReplManager::slaveStartFullsync(const StoreMeta& metaSnapshot) {
   LOG(INFO) << "store:" << metaSnapshot.id << " fullsync start";
-  /* NOTE(wayenchen):lastsyncTime && lastbinlogTs 
+  /* NOTE(wayenchen):lastsyncTime && lastbinlogTs
         should be inited if fullsync to new master */
   {
     std::lock_guard<std::mutex> lk(_mutex);
@@ -282,12 +286,10 @@ void ReplManager::slaveStartFullsync(const StoreMeta& metaSnapshot) {
 
   // 4) read backupinfo from master
   // get binlogPos and filelist, other messages get from "backup_meta" file
-  std::string myip = _svr->getParams()->domainEnabled ? _cfg->bindIp
-                    : client->getLocalIp();
-  auto ebkInfo = getBackupInfo(client.get(),
-                               metaSnapshot,
-                               myip,
-                               _svr->getParams()->port);
+  std::string myip =
+    _svr->getParams()->domainEnabled ? _cfg->bindIp : client->getLocalIp();
+  auto ebkInfo =
+    getBackupInfo(client.get(), metaSnapshot, myip, _svr->getParams()->port);
   if (!ebkInfo.ok()) {
     LOG(WARNING) << "storeId:" << metaSnapshot.id
                  << ",syncMaster:" << metaSnapshot.syncFromHost << ":"
@@ -434,8 +436,8 @@ void ReplManager::slaveChkSyncStatus(const StoreMeta& metaSnapshot) {
   }();
 
   if (!reconn) {
-    /* No need to reconnect, if replState isn't REPL_CONNECTED(such as REPL_ERR),
-     * change replState to be REPL_CONNECTED.
+    /* No need to reconnect, if replState isn't REPL_CONNECTED(such as
+     * REPL_ERR), change replState to be REPL_CONNECTED.
      */
     if (metaSnapshot.replState != ReplState::REPL_CONNECTED) {
       auto newMeta = metaSnapshot.copy();
@@ -451,9 +453,9 @@ void ReplManager::slaveChkSyncStatus(const StoreMeta& metaSnapshot) {
   if (_svr->getParams()->clusterEnabled) {
     auto clusterMgr = _svr->getClusterMgr();
     /* _myself may be nullptr because repl startup early than cluster */
-    if (clusterMgr && clusterMgr->getClusterState()
-            && clusterMgr->getClusterState()->getMyselfNode()
-            && !clusterMgr->getClusterState()->getMyselfNode()->isMasterOk()) {
+    if (clusterMgr && clusterMgr->getClusterState() &&
+        clusterMgr->getClusterState()->getMyselfNode() &&
+        !clusterMgr->getClusterState()->getMyselfNode()->isMasterOk()) {
       LOG(ERROR) << "my master is marked as failed, no need reconn with: "
                  << metaSnapshot.syncFromHost << ","
                  << metaSnapshot.syncFromPort;
@@ -487,11 +489,10 @@ void ReplManager::slaveChkSyncStatus(const StoreMeta& metaSnapshot) {
   }
 
   std::stringstream ss;
-  std::string myip = _svr->getParams()->domainEnabled ? _cfg->bindIp
-                    : client->getLocalIp();
+  std::string myip =
+    _svr->getParams()->domainEnabled ? _cfg->bindIp : client->getLocalIp();
   ss << "INCRSYNC " << metaSnapshot.syncFromId << ' ' << metaSnapshot.id << ' '
-     << metaSnapshot.binlogId << ' '
-     << myip << ' ' << _cfg->port;
+     << metaSnapshot.binlogId << ' ' << myip << ' ' << _cfg->port;
   auto status = client->writeLine(ss.str());
   if (!status.ok()) {
     errStr =
@@ -679,10 +680,10 @@ std::ofstream* ReplManager::getCurBinlogFs(uint32_t storeId) {
     (void)localtime_r(&time, &lt);
     strftime(tbuf, sizeof(tbuf), "%Y%m%d%H%M%S", &lt);
 
-    snprintf(fname,
-             sizeof(fname),
-             "%s/%d/binlog-%d-%07d-%s.log",
-             _dumpPath.c_str(),
+    snprintf(fname, sizeof(fname) - 20, "%s", _dumpPath.c_str());
+    snprintf(fname + sizeof(fname),
+             256 - sizeof(fname),
+             "/%d/binlog-%d-%07d-%s.log",
              storeId,
              storeId,
              currentId + 1,

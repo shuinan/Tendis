@@ -238,12 +238,12 @@ std::shared_ptr<ServerEntry> makeServerEntryOld(
   uint32_t chunkSize = cfg->chunkSize;
 
   // catalog init
-  auto catalog = std::make_unique<Catalog>(
-    std::move(std::unique_ptr<KVStore>(
-      new RocksKVStore(CATALOG_NAME, cfg, nullptr, false))),
-    kvStoreCount,
-    chunkSize,
-    cfg->binlogUsingDefaultCF);
+  auto catalog =
+    std::make_unique<Catalog>(std::move(std::unique_ptr<KVStore>(
+                                new RocksKVStore(CATALOG_NAME, cfg, nullptr))),
+                              kvStoreCount,
+                              chunkSize,
+                              cfg->binlogUsingDefaultCF);
   server->installCatalog(std::move(catalog));
 
   std::vector<PStore> tmpStores;
@@ -267,9 +267,8 @@ std::shared_ptr<ServerEntry> makeServerEntryOld(
       return nullptr;
     }
 
-    tmpStores.emplace_back(std::unique_ptr<KVStore>(
-      new RocksKVStore(std::to_string(dbId), cfg, block_cache,
-              nullptr, true, mode)));
+    tmpStores.emplace_back(std::unique_ptr<KVStore>(new RocksKVStore(
+      std::to_string(dbId), cfg, block_cache, nullptr, true, mode)));
   }
   server->installStoresInLock(tmpStores);
   auto seg_mgr =
@@ -715,9 +714,9 @@ bool WorkLoad::manualFailover() {
 
 void WorkLoad::stopMigrate(const std::string& taskid, bool stopMyself) {
   if (!stopMyself) {
-      _session->setArgs({"cluster", "setslot", "stop", taskid});
+    _session->setArgs({"cluster", "setslot", "stop", taskid});
   } else {
-      _session->setArgs({"cluster", "setslot", "stopme", taskid});
+    _session->setArgs({"cluster", "setslot", "stopme", taskid});
   }
   auto expect = Command::runSessionCmd(_session.get());
   EXPECT_TRUE(expect.ok());
@@ -736,10 +735,10 @@ void WorkLoad::restartAllMigTasks() {
 }
 
 std::string WorkLoad::getWaitingJobs() {
-    _session->setArgs({"cluster", "setslot", "taskinfo", "waiting"});
-    auto expect = Command::runSessionCmd(_session.get());
-    EXPECT_TRUE(expect.ok());
-    return  expect.value();
+  _session->setArgs({"cluster", "setslot", "taskinfo", "waiting"});
+  auto expect = Command::runSessionCmd(_session.get());
+  EXPECT_TRUE(expect.ok());
+  return expect.value();
 }
 
 int genRand() {
@@ -2778,8 +2777,7 @@ void testExpireForAlreadyExpired2(std::shared_ptr<ServerEntry> svr) {
     }
 
     for (uint32_t i = 0; i < v; i++) {
-      sess.setArgs(
-        {"hset", key_hash, std::to_string(i), std::to_string(i)});
+      sess.setArgs({"hset", key_hash, std::to_string(i), std::to_string(i)});
       auto expect = Command::runSessionCmd(&sess);
       EXPECT_TRUE(expect.ok());
       EXPECT_EQ(expect.value(), Command::fmtOne());
@@ -2825,7 +2823,7 @@ void testExpireForNotExpired(std::shared_ptr<ServerEntry> svr) {
   NetSession sess(svr, std::move(socket), 1, false, nullptr, nullptr);
 
   for (uint32_t v = 0; v < 1000; ++v) {
-    string key = "testExpireForNotExpired_"+to_string(v);
+    string key = "testExpireForNotExpired_" + to_string(v);
     sess.setArgs({"set", key, "value"});
     auto expect = Command::runSessionCmd(&sess);
     EXPECT_TRUE(expect.ok());
