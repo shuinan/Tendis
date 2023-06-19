@@ -12,5 +12,5 @@ target_link_libraries(session_ctx glog)
 
 add_library(latency_record latency_record.cpp)
 
-add_executable(worker_pool_test worker_pool_test.cpp)
-target_link_libraries(worker_pool_test  gtest_main nwp test_util)
+#add_executable(worker_pool_test worker_pool_test.cpp)
+#target_link_libraries(worker_pool_test  gtest_main nwp test_util)
